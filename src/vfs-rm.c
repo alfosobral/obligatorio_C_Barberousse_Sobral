@@ -21,29 +21,32 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // 2) Leer el nodo-i
+        // 2) Intentar leer el inodo
         struct inode in;
+        int has_inode = 1;
         if (read_inode(image_path, inode_num, &in) < 0) {
-            fprintf(stderr, "Error: no se pudo leer inodo de '%s'\n", filename);
-            continue;
+            fprintf(stderr, "Advertencia: no se pudo leer inodo de '%s', eliminando entrada de todos modos\n", filename);
+            has_inode = 0;
         }
 
-        // 3) Comprobar que es un archivo regular
-        if ((in.mode & INODE_MODE_FILE) != INODE_MODE_FILE) {
-            fprintf(stderr, "Error: '%s' no es un archivo regular\n", filename);
-            continue;
-        }
+        if (has_inode) {
+            // 3) Comprobar que es archivo regular
+            if ((in.mode & INODE_MODE_FILE) != INODE_MODE_FILE) {
+                fprintf(stderr, "Error: '%s' no es un archivo regular\n", filename);
+                continue;
+            }
 
-        // 4) Truncar datos (libera bloques)
-        if (inode_trunc_data(image_path, &in) < 0) {
-            fprintf(stderr, "Error: no se pudo truncar '%s'\n", filename);
-            continue;
-        }
+            // 4) Truncar datos (libera bloques)
+            if (inode_trunc_data(image_path, &in) < 0) {
+                fprintf(stderr, "Error: no se pudo truncar '%s'\n", filename);
+                continue;
+            }
 
-        // 5) Liberar el inodo
-        if (free_inode(image_path, inode_num) < 0) {
-            fprintf(stderr, "Error: no se pudo liberar inodo de '%s'\n", filename);
-            continue;
+            // 5) Liberar inodo
+            if (free_inode(image_path, inode_num) < 0) {
+                fprintf(stderr, "Error: no se pudo liberar inodo de '%s'\n", filename);
+                continue;
+            }
         }
 
         // 6) Eliminar de directorio
