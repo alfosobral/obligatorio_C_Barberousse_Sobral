@@ -1,7 +1,8 @@
-#include <stdio.h>
+    #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 #include "vfs.h"
 
 // Función auxiliar para verificar si una cadena es un número octal válido
@@ -15,31 +16,57 @@ static int is_octal(const char *s) {
 }
 
 int main(int argc, char *argv[]) {
+    // Chequear parámetros mínimos
     if (argc < 3) {
         fprintf(stderr, "Uso: %s <imagen> [permisos_octal] <archivo1> [archivo2...]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     const char *image_path = argv[1];
+
+    // Verificar que el archivo de imagen exista
+    if (access(image_path, F_OK) != 0) {
+        fprintf(stderr, "Error: imagen '%s' no encontrada\n", image_path);
+        return EXIT_FAILURE;
+    }
+
+    // Verificar que sea una imagen VFS válida
+    struct superblock sb;
+    if (read_superblock(image_path, &sb) < 0) {
+        fprintf(stderr, "Error: '%s' no es una imagen VFS válida\n", image_path);
+        return EXIT_FAILURE;
+    }
+
+    // Verificar que haya al menos un archivo a crear
+    if (argc < 3) {
+        fprintf(stderr, "Error: falta al menos un nombre de archivo\n");
+        return EXIT_FAILURE;
+    }
+
     uint16_t perms = DEFAULT_PERM;
     int file_start = 2;
 
-    // Si el segundo argumento es un octal, lo interpretamos como permisos
+    // Interpretar permisos octales si se proporcionan
     if (argc >= 4 && is_octal(argv[2])) {
-        perms = (uint16_t) strtol(argv[2], NULL, 8);
+        perms = (uint16_t)strtol(argv[2], NULL, 8);
         file_start = 3;
     }
 
+    // Procesar cada archivo
     for (int i = file_start; i < argc; i++) {
         const char *filename = argv[i];
 
-        // Verificar si el nombre ya existe
-        if (dir_lookup(image_path, filename) > 0) {
+        // Chequear existencia previa
+        int existing = dir_lookup(image_path, filename);
+        if (existing > 0) {
             fprintf(stderr, "Error: el archivo '%s' ya existe\n", filename);
+            continue;
+        } else if (existing < 0) {
+            fprintf(stderr, "Error: no se pudo acceder al VFS para buscar '%s'\n", filename);
             continue;
         }
 
-        // Validar el nombre
+        // Validar nombre
         if (!name_is_valid(filename)) {
             fprintf(stderr, "Error: nombre inválido '%s'\n", filename);
             continue;
@@ -52,15 +79,14 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Agregar entrada al directorio
+        // Agregar al directorio
         if (add_dir_entry(image_path, filename, inode_nbr) < 0) {
-            fprintf(stderr, "Error: no se pudo agregar entrada de directorio '%s'\n", filename);
-            // Revertir creación del inodo
+            fprintf(stderr, "Error: no se pudo agregar '%s' al directorio\n", filename);
             free_inode(image_path, inode_nbr);
             continue;
         }
 
-        printf("Archivo '%s' creado exitosamente con permisos %o.\n", filename, perms);
+        printf("Archivo '%s' creado exitosamente con permisos %o\n", filename, perms);
     }
 
     return EXIT_SUCCESS;

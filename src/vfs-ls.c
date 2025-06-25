@@ -12,17 +12,20 @@ int main(int argc, char *argv[]) {
     const char *image_path = argv[1];
     struct superblock sb;
 
+    // Leer superbloque
     if (read_superblock(image_path, &sb) < 0) {
         fprintf(stderr, "No se pudo leer el superbloque\n");
         return EXIT_FAILURE;
     }
 
+    // Leer inodo del directorio raíz
     struct inode root_inode;
     if (read_inode(image_path, ROOTDIR_INODE, &root_inode) < 0) {
         fprintf(stderr, "No se pudo leer el inodo del directorio raíz\n");
         return EXIT_FAILURE;
     }
 
+    // Leer bloque de datos del directorio raíz
     uint8_t buffer[BLOCK_SIZE];
     if (read_block(image_path, root_inode.direct[0], buffer) < 0) {
         fprintf(stderr, "No se pudo leer el bloque de directorio\n");
@@ -32,9 +35,15 @@ int main(int argc, char *argv[]) {
     struct dir_entry *entry = (struct dir_entry *)buffer;
     int max_entries = DIR_ENTRIES_PER_BLOCK;
 
+    // Imprimir entradas especiales primero
+    print_inode(&root_inode, ROOTDIR_INODE, ".");
+    print_inode(&root_inode, ROOTDIR_INODE, "..");
+
+    // Listar resto de entradas
     for (int i = 0; i < max_entries; i++) {
         if (entry[i].inode == 0) continue;
 
+        // Todas las demás entradas, incluyendo '.' y '..', ya impresas arriba
         if (strcmp(entry[i].name, ".") == 0 || strcmp(entry[i].name, "..") == 0)
             continue;
 

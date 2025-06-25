@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
 
     const char *image_path = argv[1];
     struct superblock sb;
-
     if (read_superblock(image_path, &sb) < 0) {
         fprintf(stderr, "No se pudo leer el superbloque\n");
         return EXIT_FAILURE;
@@ -44,6 +43,13 @@ int main(int argc, char *argv[]) {
     struct dir_entry_with_inode files[DIR_ENTRIES_PER_BLOCK];
     int file_count = 0;
 
+    // Añadir '.' y '..' manualmente
+    // Imprimir .
+    print_inode(&root_inode, ROOTDIR_INODE, ".");
+    // Imprimir .. (también el root inode)
+    print_inode(&root_inode, ROOTDIR_INODE, "..");
+
+    // Recopilar el resto
     for (size_t i = 0; i < DIR_ENTRIES_PER_BLOCK; i++) {
         if (entry[i].inode == 0) continue;
         if (strcmp(entry[i].name, ".") == 0 || strcmp(entry[i].name, "..") == 0) continue;
@@ -59,8 +65,10 @@ int main(int argc, char *argv[]) {
         file_count++;
     }
 
+    // Ordenar alfabéticamente
     qsort(files, file_count, sizeof(struct dir_entry_with_inode), cmp_by_name);
 
+    // Imprimir ordenados
     for (int i = 0; i < file_count; i++) {
         print_inode(&files[i].inode, files[i].entry.inode, files[i].entry.name);
     }
